@@ -1,4 +1,4 @@
-// App.tsx - 에러 수정된 Supabase 실시간 워크플로우 앱
+// App.tsx - 단순화된 Supabase 실시간 워크플로우 앱
 import React, { useState, useEffect } from 'react';
 declare global {
   interface Window {
@@ -122,24 +122,6 @@ const WorkflowApp: React.FC = () => {
     } catch (error) {
       console.error('단계 수정 실패:', error);
       alert('단계 수정에 실패했습니다.');
-    }
-  };
-
-  // 완료 상태 토글
-  const toggleComplete = async (id: number, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('workflow_steps')
-        .update({
-          is_completed: !currentStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('상태 변경 실패:', error);
-      alert('상태 변경에 실패했습니다.');
     }
   };
 
@@ -272,14 +254,10 @@ const WorkflowApp: React.FC = () => {
       {/* 연결 상태 */}
       <div style={statusStyle}>
         {isOnline ? (
-          <>🟢 실시간 연결됨 - 모든 기기에서 동시 업데이트</>
+          <>🟢 실시간 연결됨</>
         ) : (
           <>🔴 연결 끊김 - 다시 연결 중...</>
         )}
-      </div>
-
-      <div style={{ marginBottom: '20px', textAlign: 'center', color: '#666' }}>
-        📱 다른 PC/폰에서도 동시에 변경사항을 확인하세요! (총 {steps.length}개 단계)
       </div>
 
       <div>
@@ -306,8 +284,7 @@ const WorkflowApp: React.FC = () => {
                     fontSize: '18px', 
                     fontWeight: 'bold', 
                     marginBottom: '8px',
-                    textDecoration: step.is_completed ? 'line-through' : 'none',
-                    color: step.is_completed ? '#999' : '#333'
+                    color: '#333'
                   }}>
                     {step.title}
                   </h3>
@@ -333,12 +310,6 @@ const WorkflowApp: React.FC = () => {
                       onClick={() => setEditingStep(step.id)}
                     >
                       ✏️ 편집
-                    </button>
-                    <button 
-                      style={step.is_completed ? secondaryButtonStyle : primaryButtonStyle}
-                      onClick={() => toggleComplete(step.id, step.is_completed)}
-                    >
-                      {step.is_completed ? '✅ 완료됨' : '⭕ 완료 표시'}
                     </button>
                     <button 
                       style={dangerButtonStyle}
