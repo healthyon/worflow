@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 declare global {
   interface Window {
     supabase: any;
+    XLSX: any;
   }
 }
 
@@ -125,7 +126,54 @@ const WorkflowApp: React.FC = () => {
     }
   };
 
-  // 단계 삭제
+  // 엑셀 다운로드 함수
+  const downloadExcel = () => {
+    // SheetJS 라이브러리 확인
+    if (!window.XLSX) {
+      alert('엑셀 라이브러리가 로드되지 않았습니다. 페이지를 새로고침하거나 배포된 사이트에서 이용해주세요.');
+      return;
+    }
+
+    try {
+      // 엑셀 데이터 준비
+      const excelData = steps.map((step, index) => ({
+        '순서': index + 1,
+        '제목': step.title,
+        '설명': step.description,
+        '생성일시': new Date(step.created_at).toLocaleString('ko-KR'),
+        '수정일시': step.updated_at !== step.created_at ? 
+          new Date(step.updated_at).toLocaleString('ko-KR') : '-'
+      }));
+
+      // 워크북과 워크시트 생성
+      const wb = window.XLSX.utils.book_new();
+      const ws = window.XLSX.utils.json_to_sheet(excelData);
+
+      // 컬럼 너비 설정
+      ws['!cols'] = [
+        { wch: 8 },   // 순서
+        { wch: 25 },  // 제목
+        { wch: 40 },  // 설명
+        { wch: 20 },  // 생성일시
+        { wch: 20 }   // 수정일시
+      ];
+
+      // 워크시트를 워크북에 추가
+      window.XLSX.utils.book_append_sheet(wb, ws, '워크플로우 단계');
+
+      // 파일명 생성 (현재 날짜 포함)
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+      const filename = `워크플로우_${dateStr}_${timeStr}.xlsx`;
+
+      // 파일 다운로드
+      window.XLSX.writeFile(wb, filename);
+    } catch (error) {
+      console.error('엑셀 다운로드 실패:', error);
+      alert('엑셀 다운로드에 실패했습니다. 페이지를 새로고침하고 다시 시도해주세요.');
+    }
+  };
   const deleteStep = async (id: number) => {
     if (!window.confirm('정말로 이 단계를 삭제하시겠습니까?')) return;
 
@@ -230,6 +278,12 @@ const WorkflowApp: React.FC = () => {
     color: 'white'
   };
 
+  const successButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    backgroundColor: '#34a853',
+    color: 'white'
+  };
+
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '10px',
@@ -249,7 +303,7 @@ const WorkflowApp: React.FC = () => {
 
   return (
     <div style={containerStyle}>
-      <h1 style={titleStyle}>한성헬시온 제조 프로세스</h1>
+      <h1 style={titleStyle}>🚀 실시간 워크플로우</h1>
       
 
 
