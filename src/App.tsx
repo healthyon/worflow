@@ -80,7 +80,76 @@ const WorkflowApp: React.FC = () => {
 
   // 엑셀 다운로드 함수
   const downloadExcel = () => {
-    alert(`엑셀 다운로드 시도!\n단계 수: ${steps.length}\nXLSX 사용가능: ${!!window.XLSX}`);
+    // 단계별 디버깅
+    console.log('다운로드 시작');
+    console.log('XLSX 사용 가능:', !!window.XLSX);
+    console.log('단계 수:', steps.length);
+    
+    // SheetJS 라이브러리 확인
+    if (!window.XLSX) {
+      alert('엑셀 라이브러리가 로드되지 않았습니다.\n\n해결 방법:\n1. 페이지 새로고침\n2. public/index.html에 CDN 추가 확인\n3. 브라우저 캐시 삭제');
+      return;
+    }
+
+    // 데이터가 없으면 기본 데이터로 테스트
+    let excelData;
+    if (steps.length === 0) {
+      excelData = [{
+        '순서': 1,
+        '제목': '테스트 단계',
+        '설명': '엑셀 다운로드 테스트용 데이터입니다.',
+        '생성일시': new Date().toLocaleString('ko-KR'),
+        '수정일시': '-'
+      }];
+    } else {
+      excelData = steps.map((step, index) => ({
+        '순서': index + 1,
+        '제목': step.title,
+        '설명': step.description,
+        '생성일시': new Date(step.created_at).toLocaleString('ko-KR'),
+        '수정일시': step.updated_at !== step.created_at ? 
+          new Date(step.updated_at).toLocaleString('ko-KR') : '-'
+      }));
+    }
+
+    try {
+      console.log('엑셀 데이터:', excelData);
+      
+      // 워크북과 워크시트 생성
+      const wb = window.XLSX.utils.book_new();
+      const ws = window.XLSX.utils.json_to_sheet(excelData);
+
+      // 컬럼 너비 설정
+      ws['!cols'] = [
+        { wch: 8 },   // 순서
+        { wch: 25 },  // 제목
+        { wch: 40 },  // 설명
+        { wch: 20 },  // 생성일시
+        { wch: 20 }   // 수정일시
+      ];
+
+      // 워크시트를 워크북에 추가
+      window.XLSX.utils.book_append_sheet(wb, ws, '워크플로우 단계');
+
+      // 파일명 생성 (현재 날짜 포함)
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+      const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
+      const filename = `워크플로우_${dateStr}_${timeStr}.xlsx`;
+
+      console.log('파일명:', filename);
+
+      // 파일 다운로드
+      window.XLSX.writeFile(wb, filename);
+      
+      console.log('다운로드 완료');
+      alert('엑셀 파일 다운로드 완료!');
+      
+    } catch (error) {
+      console.error('엑셀 다운로드 실패:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+      alert(`엑셀 다운로드 실패:\n${errorMessage}\n\n브라우저 콘솔을 확인해주세요.`);
+    }
   };
 
   // 새 단계 추가
