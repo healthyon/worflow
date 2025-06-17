@@ -155,31 +155,35 @@ const WorkflowApp: React.FC = () => {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <h1 style={{ textAlign: 'center', color: '#333', marginBottom: '20px', fontSize: '2em' }}>
-        🚀 실시간 워크플로우
-      </h1>
-      
-      {/* 강제 표시 버튼 */}
-      <div style={{ textAlign: 'center', marginBottom: '30px', backgroundColor: 'red', padding: '20px' }}>
-        <h2 style={{ color: 'white', margin: '0 0 10px 0' }}>디버깅 섹션</h2>
+      {/* 제목과 다운로드 버튼을 같은 줄에 */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '30px' 
+      }}>
+        <h1 style={{ 
+          color: '#333', 
+          fontSize: '2em', 
+          margin: 0 
+        }}>
+          🚀 실시간 워크플로우
+        </h1>
+        
         <button 
           style={{
-            padding: '15px 30px',
+            padding: '8px 16px',
             backgroundColor: '#34a853',
             color: 'white',
-            border: '3px solid white',
-            borderRadius: '10px',
-            fontSize: '18px',
-            cursor: 'pointer',
-            fontWeight: 'bold'
+            border: 'none',
+            borderRadius: '4px',
+            fontSize: '14px',
+            cursor: 'pointer'
           }}
           onClick={downloadExcel}
         >
-          📊 테스트 다운로드 버튼
+          📊 엑셀 다운로드
         </button>
-        <p style={{ color: 'white', margin: '10px 0 0 0' }}>
-          이 버튼이 보이나요? 단계 수: {steps.length}
-        </p>
       </div>
 
       <div>
