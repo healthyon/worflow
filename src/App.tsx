@@ -312,7 +312,7 @@ const WorkflowEditor = () => {
   return (
     <div style={containerStyle}>
       <div style={cardStyle}>
-        <h1 style={titleStyle}>한성헬시온 제조 프로세스</h1>
+        <h1 style={titleStyle}>한성헬시온 제조 테스트</h1>
 
         <div>
           {steps.map((step, index) => (
