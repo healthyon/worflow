@@ -190,6 +190,7 @@ const WorkflowEditor = () => {
 
   const stepInfoStyle: React.CSSProperties = {
     flex: 1,
+    minWidth: 0,
   };
 
   const stepTitleStyle: React.CSSProperties = {
@@ -239,6 +240,7 @@ const WorkflowEditor = () => {
     borderRadius: "6px",
     fontSize: "14px",
     outline: "none",
+    boxSizing: "border-box",
   };
 
   const textareaStyle: React.CSSProperties = {
@@ -310,7 +312,7 @@ const WorkflowEditor = () => {
   return (
     <div style={containerStyle}>
       <div style={cardStyle}>
-        <h1 style={titleStyle}>업무 진행 순서 관리</h1>
+        <h1 style={titleStyle}>한성헬시온 제조 프로세스</h1>
 
         <div>
           {steps.map((step, index) => (
