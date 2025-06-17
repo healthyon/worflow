@@ -279,7 +279,12 @@ const WorkflowApp: React.FC = () => {
   };
 
   const successButtonStyle: React.CSSProperties = {
-    ...buttonStyle,
+    padding: '8px 16px',
+    margin: '5px',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
     backgroundColor: '#34a853',
     color: 'white'
   };
