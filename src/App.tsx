@@ -236,7 +236,7 @@ const WorkflowApp: React.FC = () => {
           fontSize: '2em', 
           margin: 0 
         }}>
-          🚀 실시간 워크플로우
+          한성헬시온 제조 프로세스
         </h1>
         
         <button 
