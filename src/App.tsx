@@ -249,16 +249,9 @@ const WorkflowApp: React.FC = () => {
 
   return (
     <div style={containerStyle}>
-      <h1 style={titleStyle}>🚀 실시간 워크플로우</h1>
+      <h1 style={titleStyle}>한성헬시온 제조 프로세스</h1>
       
-      {/* 연결 상태 */}
-      <div style={statusStyle}>
-        {isOnline ? (
-          <>🟢 실시간 연결됨</>
-        ) : (
-          <>🔴 연결 끊김 - 다시 연결 중...</>
-        )}
-      </div>
+
 
       <div>
         {steps.map((step, index) => (
@@ -296,13 +289,6 @@ const WorkflowApp: React.FC = () => {
                   }}>
                     {step.description}
                   </p>
-                  
-                  <div style={{ fontSize: '12px', color: '#999', marginBottom: '15px' }}>
-                    생성: {new Date(step.created_at).toLocaleString('ko-KR')}
-                    {step.updated_at !== step.created_at && (
-                      <span> | 수정: {new Date(step.updated_at).toLocaleString('ko-KR')}</span>
-                    )}
-                  </div>
                   
                   <div>
                     <button 
