@@ -1,463 +1,455 @@
-import React, { useState } from "react";
+// App.tsx - 에러 수정된 Supabase 실시간 워크플로우 앱
+import React, { useState, useEffect } from 'react';
+declare global {
+  interface Window {
+    supabase: any;
+  }
+}
 
-// 간단한 아이콘 컴포넌트들
-const ChevronUp = () => <span style={{ fontSize: "14px" }}>↑</span>;
-const ChevronDown = () => <span style={{ fontSize: "14px" }}>↓</span>;
-const Edit2 = () => <span style={{ fontSize: "14px" }}>✏️</span>;
-const Trash2 = () => <span style={{ fontSize: "14px" }}>🗑️</span>;
-const Save = () => <span style={{ fontSize: "14px" }}>💾</span>;
-const X = () => <span style={{ fontSize: "14px" }}>✖️</span>;
-const Plus = () => <span style={{ fontSize: "16px" }}>➕</span>;
+const { createClient } = window.supabase;
 
-const WorkflowEditor = () => {
-  const [steps, setSteps] = useState([
-    {
-      id: 1,
-      title: "고객사 컨설팅",
-      description: "전문 상담을 통한 맞춤형 솔루션 제공",
-    },
-    { id: 2, title: "의뢰접수", description: "고객 요구사항 접수 및 분석" },
-    { id: 3, title: "배합비 검토", description: "최적의 성분 배합비 설계" },
-    { id: 4, title: "제제연구", description: "전문 연구팀의 제제 개발" },
-    { id: 5, title: "샘플 제작", description: "고객 확인용 샘플 생산" },
-    { id: 6, title: "시생산", description: "본격 생산 전 시험 생산" },
-    {
-      id: 7,
-      title: "공인성적 및 디자인",
-      description: "품질 검증 및 패키지 디자인",
-    },
-    { id: 8, title: "품목신고", description: "식약처 품목 신고 지원" },
-    { id: 9, title: "포장개발", description: "최적화된 포장재 개발" },
-    { id: 10, title: "광고심의", description: "광고 소재 심의 지원" },
-    {
-      id: 11,
-      title: "원부자재 발주 및 입고",
-      description: "고품질 원료 조달 관리",
-    },
-    { id: 12, title: "생산 및 검수", description: "엄격한 품질관리 하 생산" },
-    { id: 13, title: "제품 납품", description: "안전한 완제품 배송" },
-  ]);
+// Supabase 설정 (실제 값으로 교체해야 함)
+const supabaseUrl = 'https://oltninbkpgkygqakxxyp.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9sdG5pbmJrcGdreWdxYWt4eHlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxNzQ5NTIsImV4cCI6MjA2NTc1MDk1Mn0.8hUmzENBRiY5HcTxPkzh5JGuDyccRYKv9YzTC0EWSPY';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editDescription, setEditDescription] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newDescription, setNewDescription] = useState("");
+interface Step {
+  id: number;
+  title: string;
+  description: string;
+  is_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
-  const moveStep = (index: number, direction: "up" | "down") => {
-    const newSteps = [...steps];
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
+const WorkflowApp: React.FC = () => {
+  const [steps, setSteps] = useState<Step[]>([]);
+  const [editingStep, setEditingStep] = useState<number | null>(null);
+  const [newStepTitle, setNewStepTitle] = useState('');
+  const [newStepDescription, setNewStepDescription] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
 
-    if (targetIndex >= 0 && targetIndex < newSteps.length) {
-      [newSteps[index], newSteps[targetIndex]] = [
-        newSteps[targetIndex],
-        newSteps[index],
-      ];
+  // 데이터 불러오기
+  const fetchSteps = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('workflow_steps')
+        .select('*')
+        .order('created_at', { ascending: true });
 
-      newSteps.forEach((step, idx) => {
-        step.id = idx + 1;
+      if (error) throw error;
+      setSteps(data || []);
+    } catch (error) {
+      console.error('데이터 불러오기 실패:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 실시간 구독 설정
+  useEffect(() => {
+    fetchSteps();
+
+    // 실시간 구독
+    const subscription = supabase
+      .channel('workflow_steps')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'workflow_steps' },
+        (payload: any) => {
+          console.log('실시간 변경 감지:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            setSteps(prev => [...prev, payload.new as Step]);
+          } else if (payload.eventType === 'UPDATE') {
+            setSteps(prev => prev.map(step => 
+              step.id === payload.new.id ? payload.new as Step : step
+            ));
+          } else if (payload.eventType === 'DELETE') {
+            setSteps(prev => prev.filter(step => step.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe((status: string) => {
+        console.log('구독 상태:', status);
+        setIsOnline(status === 'SUBSCRIBED');
       });
 
-      setSteps(newSteps);
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // 새 단계 추가
+  const addStep = async () => {
+    if (!newStepTitle.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('workflow_steps')
+        .insert([
+          {
+            title: newStepTitle.trim(),
+            description: newStepDescription.trim(),
+            is_completed: false
+          }
+        ]);
+
+      if (error) throw error;
+
+      setNewStepTitle('');
+      setNewStepDescription('');
+    } catch (error) {
+      console.error('단계 추가 실패:', error);
+      alert('단계 추가에 실패했습니다.');
     }
   };
 
-  const startEdit = (step: any) => {
-    setEditingId(step.id);
-    setEditTitle(step.title);
-    setEditDescription(step.description);
+  // 단계 수정
+  const updateStep = async (id: number, title: string, description: string) => {
+    try {
+      const { error } = await supabase
+        .from('workflow_steps')
+        .update({
+          title: title.trim(),
+          description: description.trim(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      setEditingStep(null);
+    } catch (error) {
+      console.error('단계 수정 실패:', error);
+      alert('단계 수정에 실패했습니다.');
+    }
   };
 
-  const saveEdit = () => {
-    setSteps(
-      steps.map((step) =>
-        step.id === editingId
-          ? { ...step, title: editTitle, description: editDescription }
-          : step
-      )
+  // 완료 상태 토글
+  const toggleComplete = async (id: number, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('workflow_steps')
+        .update({
+          is_completed: !currentStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('상태 변경 실패:', error);
+      alert('상태 변경에 실패했습니다.');
+    }
+  };
+
+  // 단계 삭제
+  const deleteStep = async (id: number) => {
+    if (!window.confirm('정말로 이 단계를 삭제하시겠습니까?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('workflow_steps')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('단계 삭제 실패:', error);
+      alert('단계 삭제에 실패했습니다.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '50px' }}>
+        <div style={{ fontSize: '18px' }}>데이터를 불러오는 중...</div>
+      </div>
     );
-    setEditingId(null);
-    setEditTitle("");
-    setEditDescription("");
-  };
+  }
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditTitle("");
-    setEditDescription("");
-  };
-
-  const deleteStep = (id: number) => {
-    const newSteps = steps.filter((step) => step.id !== id);
-    newSteps.forEach((step, idx) => {
-      step.id = idx + 1;
-    });
-    setSteps(newSteps);
-  };
-
-  const addStep = () => {
-    if (newTitle.trim() && newDescription.trim()) {
-      const newStep = {
-        id: steps.length + 1,
-        title: newTitle.trim(),
-        description: newDescription.trim(),
-      };
-      setSteps([...steps, newStep]);
-      setNewTitle("");
-      setNewDescription("");
-      setIsAdding(false);
-    }
-  };
-
-  const cancelAdd = () => {
-    setNewTitle("");
-    setNewDescription("");
-    setIsAdding(false);
-  };
-
-  // 스타일 객체들
   const containerStyle: React.CSSProperties = {
-    maxWidth: "896px",
-    margin: "0 auto",
-    padding: "24px",
-    backgroundColor: "#f9fafb",
-    minHeight: "100vh",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  };
-
-  const cardStyle: React.CSSProperties = {
-    backgroundColor: "white",
-    borderRadius: "8px",
-    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)",
-    padding: "24px",
+    maxWidth: '800px',
+    margin: '0 auto',
+    padding: '20px',
+    fontFamily: 'Arial, sans-serif'
   };
 
   const titleStyle: React.CSSProperties = {
-    fontSize: "1.875rem",
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: "32px",
-    color: "#1f2937",
+    textAlign: 'center',
+    color: '#333',
+    marginBottom: '20px',
+    fontSize: '2em'
+  };
+
+  const statusStyle: React.CSSProperties = {
+    textAlign: 'center',
+    marginBottom: '30px',
+    padding: '10px',
+    borderRadius: '8px',
+    backgroundColor: isOnline ? '#e8f5e8' : '#ffe8e8',
+    color: isOnline ? '#2e7d32' : '#d32f2f'
+  };
+
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: 'white',
+    border: '1px solid #ddd',
+    borderRadius: '8px',
+    padding: '20px',
+    marginBottom: '15px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
   };
 
   const stepContainerStyle: React.CSSProperties = {
-    position: "relative",
-    marginBottom: "16px",
-  };
-
-  const connectionLineStyle: React.CSSProperties = {
-    position: "absolute",
-    left: "24px",
-    top: "64px",
-    width: "2px",
-    height: "32px",
-    backgroundColor: "#93c5fd",
-    zIndex: 0,
-  };
-
-  const stepCardStyle: React.CSSProperties = {
-    background: "linear-gradient(to right, #eff6ff, #e0e7ff)",
-    border: "1px solid #bfdbfe",
-    borderRadius: "8px",
-    padding: "16px",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-    position: "relative",
-    zIndex: 10,
-    transition: "all 0.2s",
-  };
-
-  const stepContentStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "16px",
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '15px',
+    marginBottom: '15px'
   };
 
   const stepNumberStyle: React.CSSProperties = {
-    width: "48px",
-    height: "48px",
-    backgroundColor: "#3b82f6",
-    color: "white",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontWeight: "bold",
-    fontSize: "18px",
-    flexShrink: 0,
+    backgroundColor: '#4285f4',
+    color: 'white',
+    borderRadius: '50%',
+    width: '40px',
+    height: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 'bold',
+    fontSize: '18px',
+    flexShrink: 0
   };
 
-  const stepInfoStyle: React.CSSProperties = {
-    flex: 1,
-    minWidth: 0,
+  const buttonStyle: React.CSSProperties = {
+    padding: '8px 16px',
+    margin: '5px',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px'
   };
 
-  const stepTitleStyle: React.CSSProperties = {
-    fontSize: "18px",
-    fontWeight: "600",
-    color: "#1f2937",
-    marginBottom: "4px",
+  const primaryButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    backgroundColor: '#4285f4',
+    color: 'white'
   };
 
-  const stepDescriptionStyle: React.CSSProperties = {
-    color: "#6b7280",
-    fontSize: "14px",
-    whiteSpace: "pre-wrap",
+  const secondaryButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    backgroundColor: '#f1f3f4',
+    color: '#333'
   };
 
-  const controlsStyle: React.CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  };
-
-  const controlRowStyle: React.CSSProperties = {
-    display: "flex",
-    gap: "4px",
-  };
-
-  const controlBtnStyle: React.CSSProperties = {
-    padding: "4px",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    backgroundColor: "transparent",
-    color: "#6b7280",
-    transition: "all 0.2s",
-  };
-
-  const editFormStyle: React.CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
+  const dangerButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    backgroundColor: '#ea4335',
+    color: 'white'
   };
 
   const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "8px 12px",
-    border: "1px solid #d1d5db",
-    borderRadius: "6px",
-    fontSize: "14px",
-    outline: "none",
-    boxSizing: "border-box",
+    width: '100%',
+    padding: '10px',
+    margin: '5px 0',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    fontSize: '16px',
+    boxSizing: 'border-box'
   };
 
   const textareaStyle: React.CSSProperties = {
     ...inputStyle,
-    resize: "none",
-    fontFamily: "inherit",
-  };
-
-  const buttonRowStyle: React.CSSProperties = {
-    display: "flex",
-    gap: "8px",
-  };
-
-  const saveBtnStyle: React.CSSProperties = {
-    padding: "4px 12px",
-    backgroundColor: "#22c55e",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-    fontSize: "14px",
-  };
-
-  const cancelBtnStyle: React.CSSProperties = {
-    padding: "4px 12px",
-    backgroundColor: "#6b7280",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "4px",
-    fontSize: "14px",
-  };
-
-  const addStepCardStyle: React.CSSProperties = {
-    backgroundColor: "#f0fdf4",
-    border: "1px solid #bbf7d0",
-    borderRadius: "8px",
-    padding: "16px",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
-  };
-
-  const addStepBtnStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "16px",
-    border: "2px dashed #d1d5db",
-    borderRadius: "8px",
-    backgroundColor: "transparent",
-    color: "#6b7280",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
-    fontSize: "16px",
-    transition: "all 0.2s",
-  };
-
-  const greenNumberStyle: React.CSSProperties = {
-    ...stepNumberStyle,
-    backgroundColor: "#22c55e",
+    minHeight: '80px',
+    resize: 'vertical',
+    fontFamily: 'inherit'
   };
 
   return (
     <div style={containerStyle}>
-      <div style={cardStyle}>
-        <h1 style={titleStyle}>한성헬시온 제조 프로세스</h1>
+      <h1 style={titleStyle}>🚀 실시간 워크플로우</h1>
+      
+      {/* 연결 상태 */}
+      <div style={statusStyle}>
+        {isOnline ? (
+          <>🟢 실시간 연결됨 - 모든 기기에서 동시 업데이트</>
+        ) : (
+          <>🔴 연결 끊김 - 다시 연결 중...</>
+        )}
+      </div>
 
-        <div>
-          {steps.map((step, index) => (
-            <div key={step.id} style={stepContainerStyle}>
-              {/* 연결선 */}
-              {index < steps.length - 1 && (
-                <div style={connectionLineStyle}></div>
-              )}
+      <div style={{ marginBottom: '20px', textAlign: 'center', color: '#666' }}>
+        📱 다른 PC/폰에서도 동시에 변경사항을 확인하세요! (총 {steps.length}개 단계)
+      </div>
 
-              <div style={stepCardStyle}>
-                <div style={stepContentStyle}>
-                  {/* 단계 번호 */}
-                  <div style={stepNumberStyle}>{step.id}</div>
-
-                  {/* 내용 */}
-                  <div style={stepInfoStyle}>
-                    {editingId === step.id ? (
-                      <div style={editFormStyle}>
-                        <input
-                          type="text"
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          style={inputStyle}
-                          placeholder="단계 제목"
-                        />
-                        <textarea
-                          value={editDescription}
-                          onChange={(e) => setEditDescription(e.target.value)}
-                          style={textareaStyle}
-                          rows={2}
-                          placeholder="단계 설명"
-                        />
-                        <div style={buttonRowStyle}>
-                          <button onClick={saveEdit} style={saveBtnStyle}>
-                            <Save /> 저장
-                          </button>
-                          <button onClick={cancelEdit} style={cancelBtnStyle}>
-                            <X /> 취소
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <h3 style={stepTitleStyle}>{step.title}</h3>
-                        <p style={stepDescriptionStyle}>{step.description}</p>
-                      </div>
+      <div>
+        {steps.map((step, index) => (
+          <div key={step.id} style={stepContainerStyle}>
+            <div style={stepNumberStyle}>
+              {index + 1}
+            </div>
+            
+            <div style={{ flex: 1 }}>
+              {editingStep === step.id ? (
+                <EditStepForm 
+                  step={step}
+                  onSave={updateStep}
+                  onCancel={() => setEditingStep(null)}
+                  inputStyle={inputStyle}
+                  textareaStyle={textareaStyle}
+                  primaryButtonStyle={primaryButtonStyle}
+                  secondaryButtonStyle={secondaryButtonStyle}
+                />
+              ) : (
+                <div style={cardStyle}>
+                  <h3 style={{ 
+                    fontSize: '18px', 
+                    fontWeight: 'bold', 
+                    marginBottom: '8px',
+                    textDecoration: step.is_completed ? 'line-through' : 'none',
+                    color: step.is_completed ? '#999' : '#333'
+                  }}>
+                    {step.title}
+                  </h3>
+                  <p style={{ 
+                    color: '#666', 
+                    lineHeight: '1.6', 
+                    whiteSpace: 'pre-wrap',
+                    marginBottom: '15px'
+                  }}>
+                    {step.description}
+                  </p>
+                  
+                  <div style={{ fontSize: '12px', color: '#999', marginBottom: '15px' }}>
+                    생성: {new Date(step.created_at).toLocaleString('ko-KR')}
+                    {step.updated_at !== step.created_at && (
+                      <span> | 수정: {new Date(step.updated_at).toLocaleString('ko-KR')}</span>
                     )}
                   </div>
-
-                  {/* 컨트롤 버튼 */}
-                  {editingId !== step.id && (
-                    <div style={controlsStyle}>
-                      <div style={controlRowStyle}>
-                        <button
-                          onClick={() => moveStep(index, "up")}
-                          disabled={index === 0}
-                          style={{
-                            ...controlBtnStyle,
-                            opacity: index === 0 ? 0.3 : 1,
-                            cursor: index === 0 ? "not-allowed" : "pointer",
-                          }}
-                        >
-                          <ChevronUp />
-                        </button>
-                        <button
-                          onClick={() => moveStep(index, "down")}
-                          disabled={index === steps.length - 1}
-                          style={{
-                            ...controlBtnStyle,
-                            opacity: index === steps.length - 1 ? 0.3 : 1,
-                            cursor:
-                              index === steps.length - 1
-                                ? "not-allowed"
-                                : "pointer",
-                          }}
-                        >
-                          <ChevronDown />
-                        </button>
-                      </div>
-
-                      <div style={controlRowStyle}>
-                        <button
-                          onClick={() => startEdit(step)}
-                          style={controlBtnStyle}
-                        >
-                          <Edit2 />
-                        </button>
-                        <button
-                          onClick={() => deleteStep(step.id)}
-                          style={controlBtnStyle}
-                        >
-                          <Trash2 />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* 새 단계 추가 */}
-          {isAdding ? (
-            <div style={stepContainerStyle}>
-              <div style={addStepCardStyle}>
-                <div style={stepContentStyle}>
-                  <div style={greenNumberStyle}>{steps.length + 1}</div>
-                  <div style={stepInfoStyle}>
-                    <div style={editFormStyle}>
-                      <input
-                        type="text"
-                        value={newTitle}
-                        onChange={(e) => setNewTitle(e.target.value)}
-                        style={inputStyle}
-                        placeholder="새 단계 제목을 입력하세요"
-                      />
-                      <textarea
-                        value={newDescription}
-                        onChange={(e) => setNewDescription(e.target.value)}
-                        style={textareaStyle}
-                        rows={2}
-                        placeholder="새 단계 설명을 입력하세요"
-                      />
-                      <div style={buttonRowStyle}>
-                        <button onClick={addStep} style={saveBtnStyle}>
-                          <Save /> 추가
-                        </button>
-                        <button onClick={cancelAdd} style={cancelBtnStyle}>
-                          <X /> 취소
-                        </button>
-                      </div>
-                    </div>
+                  
+                  <div>
+                    <button 
+                      style={primaryButtonStyle}
+                      onClick={() => setEditingStep(step.id)}
+                    >
+                      ✏️ 편집
+                    </button>
+                    <button 
+                      style={step.is_completed ? secondaryButtonStyle : primaryButtonStyle}
+                      onClick={() => toggleComplete(step.id, step.is_completed)}
+                    >
+                      {step.is_completed ? '✅ 완료됨' : '⭕ 완료 표시'}
+                    </button>
+                    <button 
+                      style={dangerButtonStyle}
+                      onClick={() => deleteStep(step.id)}
+                    >
+                      🗑️ 삭제
+                    </button>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
-          ) : (
-            <button onClick={() => setIsAdding(true)} style={addStepBtnStyle}>
-              <Plus /> 새 단계 추가
-            </button>
-          )}
+          </div>
+        ))}
+
+        {/* 새 단계 추가 */}
+        <div style={cardStyle}>
+          <h3>🆕 새 단계 추가</h3>
+          <input
+            type="text"
+            placeholder="단계 제목을 입력하세요"
+            value={newStepTitle}
+            onChange={(e) => setNewStepTitle(e.target.value)}
+            style={inputStyle}
+          />
+          <textarea
+            placeholder="단계 설명을 입력하세요"
+            value={newStepDescription}
+            onChange={(e) => setNewStepDescription(e.target.value)}
+            style={textareaStyle}
+          />
+          <button 
+            style={primaryButtonStyle} 
+            onClick={addStep}
+            disabled={!newStepTitle.trim()}
+          >
+            ➕ 단계 추가
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-export default WorkflowEditor;
+// 편집 폼 컴포넌트
+interface EditStepFormProps {
+  step: Step;
+  onSave: (id: number, title: string, description: string) => void;
+  onCancel: () => void;
+  inputStyle: React.CSSProperties;
+  textareaStyle: React.CSSProperties;
+  primaryButtonStyle: React.CSSProperties;
+  secondaryButtonStyle: React.CSSProperties;
+}
+
+const EditStepForm: React.FC<EditStepFormProps> = ({ 
+  step, onSave, onCancel, inputStyle, textareaStyle, primaryButtonStyle, secondaryButtonStyle 
+}) => {
+  const [title, setTitle] = useState(step.title);
+  const [description, setDescription] = useState(step.description);
+
+  const handleSave = () => {
+    if (title.trim()) {
+      onSave(step.id, title, description);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      onCancel();
+    }
+  };
+
+  return (
+    <div style={{
+      backgroundColor: 'white',
+      border: '2px solid #4285f4',
+      borderRadius: '8px',
+      padding: '20px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+    }}>
+      <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
+        팁: Ctrl+Enter로 저장, Esc로 취소
+      </div>
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={handleKeyPress}
+        style={inputStyle}
+        autoFocus
+        placeholder="단계 제목"
+      />
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        onKeyDown={handleKeyPress}
+        style={textareaStyle}
+        placeholder="단계 설명"
+      />
+      <div>
+        <button style={primaryButtonStyle} onClick={handleSave}>
+          💾 저장
+        </button>
+        <button style={secondaryButtonStyle} onClick={onCancel}>
+          ❌ 취소
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default WorkflowApp;
